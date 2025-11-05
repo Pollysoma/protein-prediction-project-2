@@ -44,6 +44,7 @@ To add a new dependency run `uv add {dependency-name}`. This adds it to your env
 - Model size: `--modelsize 8M|35M|150M|650M|3B|15B` (default 35M)
 - Device: `--device auto|cpu|cuda` (default `auto`)
 - Batch size: `--batch-size 32` (default 32)
+- Flash attention: `--flash-attention`
 
 Notes
 - FASTA headers' first token after `>` is used as the sequence ID; IDs are stored in the `.safetensors` metadata.
@@ -64,3 +65,13 @@ Example (project data)
   emb, ids = load_embeddings_safetensors("outputs/embedding-new-2.safetensors")
   print(emb.shape, len(ids))
   ```
+  
+## Outputs file naming convention
+embedding-[dataset]-[model size]-[embedding type]
+
+- dataset: `newly-discovered`, `pre-training`, etc.
+- model size: parameter count of ESM-2 model used for embedding (determines hidden size)
+- embedding type: 
+  - `avg`: mean polled over residues excluding [CLS]/[EOS]
+  - `fragment`: per fragment (TODO)
+  - `cls`: embedding of the first [CLS] token (TODO)
