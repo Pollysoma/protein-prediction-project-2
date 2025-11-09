@@ -11,21 +11,22 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import logging
 from typing import Iterable, List, Tuple
 
 import torch
 from safetensors import safe_open
 from safetensors.torch import save_file as safetensors_save
+from tqdm import tqdm
 from transformers import AutoModel, AutoTokenizer
 
-
 ESM2_SIZE_TO_MODEL = {
-    "8M": "esm2_t6_8M_UR50D",
-    "35M": "esm2_t12_35M_UR50D",
-    "150M": "esm2_t30_150M_UR50D",
-    "650M": "esm2_t33_650M_UR50D",
-    "3B": "esm2_t36_3B_UR50D",
-    "15B": "esm2_t48_15B_UR50D",
+    "8M": "facebook/esm2_t6_8M_UR50D",
+    "35M": "facebook/esm2_t12_35M_UR50D",
+    "150M": "facebook/esm2_t30_150M_UR50D",
+    "650M": "facebook/esm2_t33_650M_UR50D",
+    "3B": "facebook/esm2_t36_3B_UR50D",
+    "15B": "facebook/esm2_t48_15B_UR50D",
 }
 
 
@@ -91,13 +92,15 @@ def embed_batch(
     enc = {k: v.to(device) for k, v in enc.items()}
 
     with torch.no_grad():
+        #TODO another method instead of averaging all fragment embeddings is to just take the [CLS] embedding
         out = model(**enc)
         reps = out.last_hidden_state  # [B, T, H], includes [CLS] and [EOS]
         residue_reps = reps[:, 1:-1, :]  # drop [CLS] and [EOS]
         residue_mask = enc["attention_mask"][:, 1:-1].unsqueeze(-1)  # [B, L, 1]
+
         residue_reps = residue_reps * residue_mask
         lengths = residue_mask.sum(dim=1).clamp(min=1)  # [B, 1]
-        embeddings = residue_reps.sum(dim=1) / lengths  # [B, H]
+        embeddings = residue_reps.sum(dim=1, dtype=torch.float32) / lengths  # [B, H]
         return embeddings.cpu()
 
 
@@ -125,16 +128,40 @@ def load_embeddings_safetensors(path: str) -> Tuple[torch.Tensor, List[str]]:
     return emb, ids
 
 
-def resolve_device(arg_device: str | None) -> str:
+def resolve_device(arg_device: str | None) -> Tuple[str, torch.dtype]:
     if arg_device is None or arg_device == "auto":
-        return "cuda" if torch.cuda.is_available() else "cpu"
-    if arg_device == "cuda" and not torch.cuda.is_available():
-        print("CUDA requested but not available; falling back to CPU.")
-        return "cpu"
-    return arg_device
+        if torch.cuda.is_available():
+            device = "cuda"
+        elif torch.backends.mps.is_available():  # For Apple Silicon
+            device = "mps"
+        else:
+            device = "cpu"
+    else:
+        device = arg_device
+
+    if device == "cuda":
+        if not torch.cuda.is_available():
+            logging.warning("CUDA requested but not available; falling back to CPU.")
+            return "cpu", torch.float32
+
+        major, _ = torch.cuda.get_device_capability()
+        if major >= 8:
+            logging.warning("Hardware with compute capability >= 8.0 detected, using bfloat16.")
+            return "cuda", torch.bfloat16
+        else:
+            logging.warning("Hardware with compute capability < 8.0 detected (e.g., T4), using float16.")
+            return "cuda", torch.float16
+
+    return device, torch.float32
 
 
 def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+
     parser = argparse.ArgumentParser(description="Embed protein sequences from FASTA using ESM2")
     parser.add_argument("fasta_path", type=str, help="Path to FASTA file")
     parser.add_argument(
@@ -169,47 +196,79 @@ def main():
         default=32,
         help="Batch size for inference",
     )
+    parser.add_argument(
+        "--flash-attention",
+        action="store_true",
+        help="Use optimized flash attention implementation"
+    )
     args = parser.parse_args()
 
     if args.n < 0:
         raise SystemExit("--n must be >= 0")
 
-    device = resolve_device(args.device)
+    device, dtype = resolve_device(args.device)
+    logging.info(f"Using device: {device} with dtype: {dtype}")
 
     records = read_fasta(args.fasta_path, n=args.n)
     if not records:
         raise SystemExit("No sequences found in the FASTA file.")
 
+    logging.info(f"Read {len(records)} sequences")
+
     ids = [rid for rid, _ in records]
     seqs = [seq for _, seq in records]
-
 
     model_name = ESM2_SIZE_TO_MODEL[args.modelsize]
 
     # Load model/tokenizer once
+    logging.info(f"Loading tokenizer and model: {model_name}")
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModel.from_pretrained(model_name).to(device).eval()
+
+    if args.flash_attention:
+        attn_implementation = "flash_attention_2"
+    else:
+        attn_implementation = "sdpa"
+    logging.info(f"Using attention implementation: {attn_implementation}")
+
+    # Load model with half-precision and Flash Attention 2 if available
+    model = AutoModel.from_pretrained(
+        model_name,
+        dtype=dtype,
+        attn_implementation=attn_implementation,
+    ).to(device)
+
+    try:
+        model = torch.compile(model)
+        logging.info("Model compiled successfully with torch.compile()")
+    except Exception as e:
+        logging.warning(f"torch.compile() failed: {e}. Running without compilation.")
+
+    model.eval()
 
     # Run in batches to avoid OOM
     embeds: List[torch.Tensor] = []
-    for batch in batched(seqs, args.batch_size):
-        emb = embed_batch(model, tokenizer, batch, device)
-        embeds.append(emb)
+
+    with tqdm(total=len(records), desc="Embedding sequences") as progress_bar:
+        for batch in batched(seqs, args.batch_size):
+            emb = embed_batch(model, tokenizer, batch, device)
+            embeds.append(emb)
+            progress_bar.update(len(batch))
+
     embeddings = torch.cat(embeds, dim=0)  # [B, H]
 
     # Output summary
     B, H = embeddings.shape
-    print(f"Embedded {B} sequences; embedding dim: {H}")
+    logging.info(f"Embedded {B} sequences; embedding dim: {H}")
     # Show first 8 dims of first embedding
     first_preview = embeddings[0, : min(8, H)].tolist()
-    print("First embedding dims:", first_preview)
+    logging.debug(f"First embedding preview (first 8 dims): {first_preview}")
 
     # Optional save
     if args.savepath:
         if not args.savepath.endswith(".safetensors"):
-            print("Warning: savepath does not end with .safetensors; writing anyway.")
+            logging.warning("savepath does not end with .safetensors; writing anyway.")
         save_embeddings_safetensors(args.savepath, embeddings, ids)
-        print(f"Saved embeddings to {args.savepath}")
+        logging.info(f"Saved embeddings to {args.savepath}")
 
 
 if __name__ == "__main__":
