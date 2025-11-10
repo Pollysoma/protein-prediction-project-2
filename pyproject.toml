@@ -18,6 +18,7 @@ dependencies = [
     "seaborn>=0.13.2",
     "matplotlib-inline>=0.2.1",
     "umap-learn>=0.5.9.post2",
+    "ipykernel>=7.1.0",
 ]
 
 [dependency-groups]
