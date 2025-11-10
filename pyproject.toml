@@ -19,6 +19,7 @@ dependencies = [
     "matplotlib-inline>=0.2.1",
     "umap-learn>=0.5.9.post2",
     "ipykernel>=7.1.0",
+    "ipywidgets>=8.1.8",
 ]
 
 [dependency-groups]
