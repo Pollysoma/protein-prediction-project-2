@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from typing import List, Optional
+
 import requests
 import argparse
 import logging
@@ -52,29 +54,10 @@ def setup_arg_parser():
         "--limit", type=int, default=None,
         help="Limit the total number of records to fetch."
     )
-    parser.add_argument(
-        "--uniref50_filter", action="store_true",
-        help="Filter results to keep one representative per UniRef50 cluster. This is slower as it requires extra API calls."
-    )
     return parser
 
 
-# --- Core Logic ---
-def build_uniprot_query(args):
-    # ... (this function is unchanged)
-    query_parts = [
-        f"(date_modified:[* TO {args.created_before}])",
-        f"(existence:{args.existence_level})",
-    ]
-    if args.reviewed:
-        query_parts.append("(reviewed:true)")
-    query = " AND ".join(query_parts)
-    logging.info(f"Constructed UniProt query: {query}")
-    return query
-
-
 def get_next_link(headers):
-    # ... (this function is unchanged)
     if "Link" in headers:
         link_header = headers["Link"]
         links = link_header.split(", ")
@@ -83,12 +66,8 @@ def get_next_link(headers):
                 return link.split(";")[0].strip("<>")
     return None
 
-
-def fetch_uniprot_data(query, result_limit=None):
-    # ... (this function is unchanged)
+def get_paged_results(url, params, result_limit: Optional[int]):
     all_results = []
-    params = {"query": query, "format": "json", "fields": "accession,protein_name,sequence", "size": PAGE_SIZE}
-    url = UNIPROTKB_API_URL
     while url:
         try:
             response = requests.get(url, params=params)
@@ -107,67 +86,9 @@ def fetch_uniprot_data(query, result_limit=None):
     return all_results
 
 
-def get_uniref50_id_for_accession(accession):
-    """
-    Queries the UniRef API for a single accession to find its UniRef50 cluster ID.
-    Returns the cluster ID string or None if not found or an error occurs.
-    """
-    query = f"(uniprot_id:{accession}) AND (identity:0.5)"
-    params = {"query": query, "format": "json", "fields": "id"}
-
-    try:
-        # Respect API rate limits to avoid being blocked
-        time.sleep(0.5)
-        response = requests.get(UNIREF_API_URL, params=params)
-        response.raise_for_status()
-
-        data = response.json()
-        results = data.get("results")
-
-        if results:
-            # As per your example, the ID is in the first result object
-            return results[0].get("id")
-
-    except requests.exceptions.RequestException as e:
-        logging.warning(f"Could not fetch UniRef ID for {accession}: {e}")
-
-    return None
-
-
-def filter_by_uniref50(results):
-    """
-    Filters a list of UniProtKB results to keep only one entry per UniRef50 ID.
-    This version processes proteins one by one.
-    """
-    logging.info(f"Starting simple UniRef50 filtering for {len(results)} proteins...")
-    seen_uniref50_ids = set()
-    filtered_results = []
-
-    for i, entry in tqdm(enumerate(results), total=len(results)):
-        accession = entry['primaryAccession']
-
-        uniref_id = get_uniref50_id_for_accession(accession)
-        logging.debug(f"Processing ({i + 1}/{len(results)}): {accession} is in cluster {uniref_id}")
-
-        if not uniref_id:
-            logging.warning(f"No UniRef50 cluster found for {accession}.")
-            filtered_results.append(entry)
-            continue
-
-        if uniref_id not in seen_uniref50_ids:
-            filtered_results.append(entry)
-            seen_uniref50_ids.add(uniref_id)
-        else:
-            logging.info(f"Cluster {uniref_id} already seen. Skipping {accession}.")
-
-    logging.info(f"Filtered {len(results)} entries down to {len(filtered_results)} non-redundant entries.")
-    return filtered_results
-
-
 def save_results(results, outfile, output_format):
-    # ... (this function is unchanged)
     logging.info(f"Saving {len(results)} records to '{outfile}' in '{output_format}' format.")
-    # ... (implementation is identical)
+
     try:
         with open(outfile, "w") as f:
             if output_format == "json":
@@ -182,28 +103,47 @@ def save_results(results, outfile, output_format):
     return True
 
 
-# --- Main Execution (Unchanged) ---
+def fetch_uniprot_data(fields: List[str], result_limit=None, modified_before = "2021-01-01", existence_level: int = 1, reviewed: bool = True):
+    query_parts = [
+        f"(date_modified:[* TO {modified_before}])",
+        f"(existence:{existence_level})",
+    ]
+    if reviewed:
+        query_parts.append("(reviewed:true)")
+    query = " AND ".join(query_parts)
+
+    logging.info(f"Constructed UniProt query: {query}")
+
+    params = {"query": query, "format": "json", "fields": ",".join(fields), "size": PAGE_SIZE}
+    url = UNIPROTKB_API_URL
+
+    results = get_paged_results(url, params, result_limit)
+    return results
+
+
+def fetch_uniref50_data(fields: List[str], result_limit=None, modified_before = "2021-01-01"):
+    query_parts = [
+        f"(date_modified:[* TO {modified_before}])",
+        f"(identity:0.5)",
+    ]
+    query = " AND ".join(query_parts)
+
+    logging.info(f"Constructed UniRef query: {query}")
+
+    params = {"query": query, "format": "json", "fields": ",".join(fields), "size": PAGE_SIZE}
+    url = UNIREF_API_URL
+
+    results = get_paged_results(url, params, result_limit)
+    return results
+
+
+
 def main():
     setup_logging()
     parser = setup_arg_parser()
     args = parser.parse_args()
 
-    logging.info("Starting UniProt data fetching process...")
-    query = build_uniprot_query(args)
-    results = fetch_uniprot_data(query, result_limit=args.limit)
-
-    if results is None:
-        logging.error("Could not fetch data from UniProt. Exiting.")
-        sys.exit(1)
-
-    if args.uniref50_filter:
-        results = filter_by_uniref50(results)
-
-    if not results:
-        logging.warning("Query returned no results after filtering.")
-        sys.exit(0)
-
-    save_results(results, args.outfile, args.format)
+    # TODO
 
 
 if __name__ == "__main__":
