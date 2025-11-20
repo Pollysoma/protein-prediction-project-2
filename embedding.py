@@ -13,12 +13,18 @@ import json
 import os
 import logging
 from typing import Iterable, List, Tuple
+from collections import Counter
 
 import torch
 from safetensors import safe_open
 from safetensors.torch import save_file as safetensors_save
 from tqdm import tqdm
+import csv
 from transformers import AutoModel, AutoTokenizer
+
+
+UNKNOW_FRAGS_THRESHOLD = 0
+MAX_SEQ_LENGTH = 1022
 
 ESM2_SIZE_TO_MODEL = {
     "8M": "facebook/esm2_t6_8M_UR50D",
@@ -74,6 +80,19 @@ def read_fasta(path: str, n: int = 0) -> List[Tuple[str, str]]:
 
     return records
 
+def read_tsv(path: str, n: int = 0) -> List[Tuple[str, str]]:
+    records: List[Tuple[str, str]] = []
+
+    with open(path) as tsvfile:
+        tsv_reader = csv.reader(tsvfile, delimiter="\t", quotechar='"')
+        next(tsv_reader) # skip the header
+        for row in tsv_reader:
+            records.append((row[0], row[-1]))
+
+            if n and len(records) >= n:
+                break
+
+    return records
 
 def embed_batch(
     model: AutoModel,
@@ -162,8 +181,8 @@ def main():
         datefmt="%Y-%m-%d %H:%M:%S"
     )
 
-    parser = argparse.ArgumentParser(description="Embed protein sequences from FASTA using ESM2")
-    parser.add_argument("fasta_path", type=str, help="Path to FASTA file")
+    parser = argparse.ArgumentParser(description="Embed protein sequences from FASTA/tsv using ESM2")
+    parser.add_argument("input_path", type=str, help="Path to FASTA or tsv file")
     parser.add_argument(
         "--savepath",
         type=str,
@@ -209,11 +228,25 @@ def main():
     device, dtype = resolve_device(args.device)
     logging.info(f"Using device: {device} with dtype: {dtype}")
 
-    records = read_fasta(args.fasta_path, n=args.n)
+    ### read input file ###
+
+    if args.input_path.endswith(".tsv"):
+        records = read_tsv(args.input_path, n=args.n)
+    elif args.input_path.endswith(".fasta"):
+        records = read_fasta(args.input_path)
+    else:
+        raise SystemExit(f"Invalid input file type")
+
     if not records:
-        raise SystemExit("No sequences found in the FASTA file.")
+        raise SystemExit("No sequences found in the input file.")
 
     logging.info(f"Read {len(records)} sequences")
+
+    ### clean data ###
+
+    # truncate sequence length to MAX_SEQ_LENGTH and remove outlines with many unknown fragments
+    records = [(rid, seq[:min(len(seq), MAX_SEQ_LENGTH)]) for rid, seq in records if
+               Counter(seq).get("X", 0) <= UNKNOW_FRAGS_THRESHOLD]
 
     ids = [rid for rid, _ in records]
     seqs = [seq for _, seq in records]
