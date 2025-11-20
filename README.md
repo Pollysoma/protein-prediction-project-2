@@ -62,7 +62,7 @@ Example (project data)
 - Load them back in Python:
   ```python
   from embedding import load_embeddings_safetensors
-  emb, ids = load_embeddings_safetensors("outputs/embedding-new-2.safetensors")
+  emb, ids = load_embeddings_safetensors("outputs/embeddings/esm2-facebook/embedding-new-2.safetensors")
   print(emb.shape, len(ids))
   ```
   
