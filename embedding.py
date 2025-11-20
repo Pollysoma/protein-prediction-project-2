@@ -233,7 +233,7 @@ def main():
     if args.input_path.endswith(".tsv"):
         records = read_tsv(args.input_path, n=args.n)
     elif args.input_path.endswith(".fasta"):
-        records = read_fasta(args.input_path)
+        records = read_fasta(args.input_path, n=args.n)
     else:
         raise SystemExit(f"Invalid input file type")
 
@@ -243,10 +243,14 @@ def main():
     logging.info(f"Read {len(records)} sequences")
 
     ### clean data ###
+    pre_cleaning_size = len(records)
 
     # truncate sequence length to MAX_SEQ_LENGTH and remove outlines with many unknown fragments
     records = [(rid, seq[:min(len(seq), MAX_SEQ_LENGTH)]) for rid, seq in records if
                Counter(seq).get("X", 0) <= UNKNOW_FRAGS_THRESHOLD]
+
+
+    logging.info(f"Removed {pre_cleaning_size - len(records)} sequences during data cleaning")
 
     ids = [rid for rid, _ in records]
     seqs = [seq for _, seq in records]
