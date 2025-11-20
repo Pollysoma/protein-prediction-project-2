@@ -246,6 +246,7 @@ def main():
     pre_cleaning_size = len(records)
 
     # truncate sequence length to MAX_SEQ_LENGTH and remove outlines with many unknown fragments
+    # TODO might be better to clean data after computing embeddings, but truncation is a nice time save...
     records = [(rid, seq[:min(len(seq), MAX_SEQ_LENGTH)]) for rid, seq in records if
                Counter(seq).get("X", 0) <= UNKNOW_FRAGS_THRESHOLD]
 
