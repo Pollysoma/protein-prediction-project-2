@@ -3,6 +3,29 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 
+class RandomBaseline(nn.Module):
+    """
+    A random baseline model that outputs random probabilities for binary classification.
+    """
+    def __init__(self, input_size = 1, out_size = 1):
+        super(RandomBaseline, self).__init__()
+        self.input_size = input_size
+        self.out_size = out_size
+
+    def forward(self, x):
+        batch_size = x.size(0)
+        random_probs = torch.rand(batch_size, 1)
+        return random_probs
+
+    def fit(self, X, y):
+        # No training needed for random baseline
+        pass
+    
+    def predict_proba(self, X):
+        batch_size = X.shape[0]
+        random_probs = np.random.rand(batch_size, 1)
+        return np.hstack([1 - random_probs, random_probs])
+
 class MLPBinaryPredictor(nn.Module):
     """
     Simple MLP for binary classification using ESM-2 protein embeddings
@@ -42,6 +65,8 @@ class SimpleMLP(nn.Module):
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
 
     def fit(self, X, y):
+        # Reset weigths for new training
+        self.model.apply(lambda m: m.reset_parameters() if hasattr(m, 'reset_parameters') else None)
         self.model.train()
         dataset = torch.utils.data.TensorDataset(torch.tensor(X, dtype=torch.float32), torch.tensor(y, dtype=torch.float32))
         dataloader = torch.utils.data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
