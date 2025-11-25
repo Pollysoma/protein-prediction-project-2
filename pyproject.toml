@@ -1,28 +1,40 @@
 [project]
-name = "main"
+name = "membership-splits"
 version = "0.1.0"
-description = "Add your description here"
+description = "Reproducible sampling pipeline for membership inference splits"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 dependencies = [
-    "datasets>=4.4.0",
-    "evaluate>=0.4.6",
-    "pandas>=2.3.3",
-    "requests>=2.32.5",
-    "scikit-learn>=1.7.2",
-    "torch>=2.9.0",
-    "transformers>=4.57.1",
-    "safetensors>=0.4.5",
-    "tqdm>=4.67.1",
-    "matplotlib>=3.10.7",
-    "seaborn>=0.13.2",
-    "matplotlib-inline>=0.2.1",
-    "umap-learn>=0.5.9.post2",
-    "ipykernel>=7.1.0",
-    "ipywidgets>=8.1.8",
+    "biopython>=1.83",
+    "datasets>=3.0.0",
+    "numpy>=1.26.0",
+    "pandas>=2.2.0",
+    "pyarrow>=14.0.0",
+    "requests>=2.32.0",
+    "tqdm>=4.66.0",
 ]
 
-[dependency-groups]
-dev = [
-    "ruff>=0.14.3",
+[build-system]
+requires = ["setuptools>=65", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.uv]
+cache-dir = ".uv-cache"
+
+[project.optional-dependencies]
+embedding = [
+    "torch>=2.1.0",
+    "transformers>=4.37.0",
+    "safetensors>=0.4.2",
+]
+baselines = [
+    "safetensors>=0.4.2",
+    "scikit-learn>=1.5.0",
+    "xgboost>=2.1.0",
 ]

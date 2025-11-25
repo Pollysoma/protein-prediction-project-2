@@ -1,0 +1,163 @@
+\documentclass[aspectratio=169,12pt]{beamer}
+\usetheme{metropolis}
+\metroset{progressbar=foot}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{array}
+\usepackage{tikz}
+
+\title{Project 3b: Exploring Overtraining and Membership in ESM-2}
+\author{Egor Rakcheev \and Timon Giess \and Ala Sleimi \and Alexander Nielsen \and Polina Yugantyseva}
+\date{\today}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+\graphicspath{{./}{slides/}{group_photos/}{../}}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{Team}
+  \centering
+  \renewcommand{\arraystretch}{1.1}
+  \begin{tabular}{>{\centering\arraybackslash}m{2.1cm} >{\centering\arraybackslash}m{2.1cm} >{\centering\arraybackslash}m{2.1cm}}
+    \shortstack[c]{\includegraphics[width=1.9cm]{group_photos/Ala.png}\\{\scriptsize Ala Sleimi}\\{\tiny MS Informatics}} &
+    \shortstack[c]{\includegraphics[width=1.9cm]{group_photos/timon.jpg}\\{\scriptsize Timon Giess}\\{\tiny MS Informatics}} &
+    \shortstack[c]{\includegraphics[width=1.9cm]{group_photos/Alexander.jpg}\\{\scriptsize Alexander Nielsen}\\{\tiny MS Data Science}} \\
+    \shortstack[c]{\includegraphics[width=1.9cm]{group_photos/Egor.jpg}\\{\scriptsize Egor Rakcheev}\\{\tiny MS Informatics}} &
+    \shortstack[c]{\includegraphics[width=1.9cm]{group_photos/Polina.jpg}\\{\scriptsize Polina Yugantyseva}\\{\tiny BS Bio+Info}} &
+    \shortstack[c]{\tikz{\node[draw=none,minimum width=1.9cm,minimum height=1.9cm]{};}\\{\scriptsize ~}\\{\tiny ~}} \\
+  \end{tabular}
+\end{frame}
+
+\begin{frame}{Membership attack recipe}
+  \begin{itemize}
+    \item Training-time proxy: sequences sampled from $\sim$ UniRef50. 
+    \item Post-train proxy:  newly discovered proteins ($N$)
+    \item Goal: learn a detector that flags members vs. non-members
+  \end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{Results snapshot}
+  \begin{center}
+    \includegraphics[width=0.78\linewidth]{great_graph.jpg}
+  \end{center}
+  \vspace{-0.2cm}
+\end{frame}
+
+\begin{frame}{Great job! 0.99 AUC!}
+  \begin{center}
+    \includegraphics[width=0.75\linewidth]{everyhing_is_fine.jpg}
+  \end{center}
+  \vspace{-0.15cm}
+ 
+\end{frame}
+
+\begin{frame}{Meta UR50D process (ESM-2 original)}
+  \begin{itemize}
+    \item Meta samples 43M UniRef50 clusters, then pulls UniRef90 sequences within clusters; $\sim$65M unique sequences seen from 138M \footnote{\href{https://doi.org/10.1126/science.ade2574}{Zeming Lin et al., \emph{Evolutionary-scale prediction of atomic-level protein structure with a language model}. Science 379, 1123--1130 (2023). DOI:10.1126/science.ade2574}.}.
+    \item The exact UR50D training file was never released; only the sampling recipe is public.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{What does that mean for MI?}
+  \begin{itemize}
+    \item For any candidate protein, only $\approx 65/138$ chance it was actually in the ESM-2 train pool.
+    \item Our MI probes risk targeting ``maybe-seen'' sequences $\Rightarrow$ unclear ground truth.
+    \item What were we even measuring??
+  \end{itemize}
+  \vspace{0.2cm}
+  \begin{center}
+    \includegraphics[width=0.22\linewidth]{they_trust_me.jpg}
+  \end{center}
+\end{frame}
+
+\begin{frame}{NVIDIA to the rescue}
+  \begin{itemize}
+    \item Member proxy: NVIDIA UR50D train shards (T) --- mirrors Meta recipe but reproducible/public.
+    \item Non-member proxies:
+      \begin{itemize}
+        \item New proteins ($N$) outside the train stream,
+        \item Validation shards (V) from NVIDIA split,
+        \item hard homologs from UniRef90 $\setminus$ T for .
+      \end{itemize}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Hardness ladder}
+  \begin{itemize}
+    \item Easy: $(S1, N)$ --- $S1$ from T (train shards), $N$ are new proteins;  $|S1|=|N|=1{,}237$.
+    \item Medium: $(S2, S3)$ --- $S2$ from T vs. $S3$ from V (val shards); equal size $K\!\approx\!12$k.
+    \item Hard: $(S4, U4)$ --- $S4$ from T vs. $U4$ hard homologs from UniRef90 $\setminus$ T; 
+  \end{itemize}
+
+  Each of the 3 pairs is then split 80/20 into train/test for the MI detector. 
+\end{frame}
+
+\begin{frame}{Sampling}
+  \begin{itemize}
+    \item Bin by $(\text{Kingdom}, \text{Length bin})$ on $N$.
+    \item All sampled sets mirror the empirical $N$ distribution to avoid easy shortcuts.
+    \item Cluster-aware sampling (UR50) keeps representation balanced  
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{N distribution (kingdom + length)}
+  \begin{center}
+    \includegraphics[width=0.9\linewidth]{slides/n_distribution_combined.png}
+  \end{center}
+\small We use this empirical $N$ distribution to set bin targets across T/V and UniRef90 sampling.
+\end{frame}
+
+
+
+\begin{frame}{Accuracy (AUC)}
+
+      \includegraphics[width=\linewidth]{outputs/plots/auc.png}
+  
+\end{frame}
+
+\begin{frame}{ROC curves}
+  \begin{center}
+    \includegraphics[width=0.32\linewidth]{outputs/plots/roc_easy.png}\hfill
+    \includegraphics[width=0.32\linewidth]{outputs/plots/roc_medium.png}\hfill
+    \includegraphics[width=0.32\linewidth]{outputs/plots/roc_hard.png}
+  \end{center}
+  \small Left: N vs S1 (easy). Middle: S2 vs S3 (medium). Right: S4 vs U4 (hard).
+\end{frame}
+
+\begin{frame}{Idea from last week}
+  \begin{itemize}
+    \item Results were not promising even on flawed data.
+    \item 650M embeddings are not ready yet (NVIDIA released 8M, 650M, 3B) so we still didn’t try them.
+    \item Likely a waste of time.
+  \end{itemize}
+  \vspace{0.2cm}
+  \begin{center}
+    \includegraphics[width=0.18\linewidth]{group_photos/Ala.png}\\
+    {\scriptsize sorry}
+  \end{center}
+\end{frame}
+
+\begin{frame}{Biggest success \& next steps}
+  \textbf{Biggest success since last presentation}
+  \begin{itemize}
+    \item Improved the data curation process.
+    \item Identified the issue with using the Meta model.
+  \end{itemize}
+  \vspace{0.2cm}
+  \textbf{Next steps (why/how they help)}
+  \begin{itemize}
+    \item Finish the 650M embeddings to test larger capacity models.
+    \item Try other MI methods and ideas from the first presentation.
+    \item Improve the MLP model and explore additional approaches.
+  \end{itemize}
+\end{frame}
+
+\end{document}
