@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# Data, embeddings, models (publish on Zenodo / Hugging Face instead)
+data/
+*.h5
+*.hdf5
+*.npy
+*.npz
+*.pt
+*.safetensors
+
+# Local
+.env
+.DS_Store
+.idea/
+.vscode/
+~$*
