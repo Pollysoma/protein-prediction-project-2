@@ -16,6 +16,10 @@ A protein is a chain made from amino acids. Its **sequence** is the ordered list
 
 Two proteins can be evolutionarily related and perform similar jobs even when many positions in their sequences have changed. This makes annotation difficult: simple sequence matching works well for close relatives, but can miss remote relationships.
 
+### How proteins and enzymes are related
+
+**Protein** describes a type of molecule, while **enzyme** describes a job: speeding up a chemical reaction. Most enzymes are proteins, but many proteins have other roles, such as providing structure, transporting molecules, sending signals, or supporting the immune system. A useful shortcut is therefore: most enzymes are proteins, but not all proteins are enzymes. There are also exceptions called ribozymes, which are RNA molecules that act as enzymes. In this project, the EC task concerns proteins that function as enzymes.
+
 ### Annotation transfer
 
 An **annotation** is a label describing a known property of a protein. Annotation transfer works like this:
