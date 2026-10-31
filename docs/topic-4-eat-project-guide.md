@@ -46,7 +46,7 @@ A prediction can therefore be correct at a broad level and wrong at a more speci
 
 #### EC numbers: enzyme-function classification
 
-Enzymes speed up chemical reactions. An **EC number** describes the reaction catalysed by an enzyme and contains four increasingly specific levels, for example `EC 3.4.21.4`. A partial label such as `EC 3.4.-.-` specifies only the first two levels.
+Enzymes speed up chemical reactions. An **EC number** describes the reaction catalysed by an enzyme and contains four increasingly specific levels, for example `EC 3.4.21.4`. A partial label such as `EC 3.4.-.-` specifies only the first two levels. However, the degree of functional specificity at the same EC level can vary between branches, so two fourth-level labels do not always represent the same degree of biological difference.
 
 Function labels require special care. A protein can catalyse multiple reactions, labels can be incomplete, and many database annotations are inferred rather than measured. The benchmark needs clear rules about which EC labels count as trustworthy ground truth and how multi-label or incomplete cases are evaluated.
 
@@ -83,7 +83,7 @@ The two measures can select different neighbors because Euclidean distance depen
 
 ### Why a reliability score is needed
 
-The original EAT tool, goPredSim, converts Euclidean distance `d` into a reliability index:
+For transfer from a single neighbor (`k = 1`), the original EAT/goPredSim reliability index reduces to:
 
 ```text
 RI = 0.5 / (0.5 + d)
@@ -118,7 +118,7 @@ Each checkpoint and revision must be recorded exactly. All embeddings for one pL
 
 ### Data
 
-For **CATH**, begin with the established ProtTucker benchmark containing the `lookup69k` lookup set and the `test219` query set. The first reproducibility check is raw ProtT5 on `test219`; the expected C/A/T/H accuracies from the brief are 84/67/57/64%. A mismatch should be investigated before scaling up. The precomputed CATH-S100 lookup in the EAT repository must not be used for this test because it contains the test domains and would leak answers into the lookup set. After the small benchmark works, use the larger non-redundant CATH v4.4 domain sets.
+For **CATH**, begin with the established ProtTucker benchmark containing the `lookup69k` lookup set and the `test219` query set. The first reproducibility check is raw ProtT5 on `test219`; the expected C/A/T/H accuracies from the brief are 84/67/57/64%. In the ProtTucker paper, a query was excluded at a given CATH level if its correct label was absent from `lookup69k`; this level-specific reachability rule must be reproduced for those numbers, and any later benchmark must state whether unreachable queries are excluded or counted as incorrect. A mismatch should be investigated before scaling up. The precomputed CATH-S100 lookup in the EAT repository must not be used for this test because it contains the test domains and would leak answers into the lookup set. After the small benchmark works, use the larger non-redundant CATH v4.4 domain sets.
 
 For **EC**, no finished split is provided. The brief suggests experimentally supported catalytic-activity entries from UniProtKB/Swiss-Prot and the older HFSP enzyme set as starting points. The team must define and agree with the supervisors on:
 
