@@ -2,7 +2,7 @@
 
 Rules for everyone working in this repo, human or coding agent. `CLAUDE.md` is a symlink to this file, so edit only `AGENTS.md`.
 
-**Project:** EAT, a benchmark for annotation transfer with raw pLM embeddings (PP2, WS 2026/27, RostLab, TUM).
+**Project:** EAT, a benchmark for annotation transfer with raw pLM embeddings (PP2, WS 2026/27, RostLab, TUM). Background, data and plan: [`docs/project.md`](docs/project.md).
 
 ## Git workflow
 
