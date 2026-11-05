@@ -1,0 +1,6 @@
+plm,dim,norm_mean,norm_cv,queries_same_nn,n_queries
+ProtT5,1024,1.430,0.161,153,219
+ProSE-MT,6165,5.500,0.211,155,219
+ESM-1b,1280,17.979,0.025,210,219
+ProSE-DLM,6165,4.334,0.255,166,219
+ProtBERT,1024,1.704,0.223,119,219

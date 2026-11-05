@@ -44,6 +44,8 @@ GitHub Issues hold our tasks, decisions and meeting protocols. If it is not in a
 
 ## Scientific rules
 
+- Every experiment gets a folder in `experiments/` (code and small result CSVs) and an entry in `protocol/` (setup, results, interpretation, deviations), following `protocol/template.md`.
+
 - **Never use the test set to choose settings, thresholds or the reliability score.** Use the calibration set for that. The test set is for final numbers only.
 - Freeze splits once agreed with the supervisors. Version them and do not change them silently.
 - Every reported number comes with a confidence interval (e.g. bootstrap) and can be regenerated from a committed script and seed.

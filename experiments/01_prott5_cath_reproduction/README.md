@@ -17,7 +17,7 @@ Accuracy in %, ± 95 % CI (1.96 × std over 10,000 bootstrap resamples). `n` is 
 
 Both rows match Table 1 after rounding. Our own embeddings give exactly the same accuracies as the authors' precomputed ones. MMseqs2 finds a hit for 172 of the 219 queries; the other 47 count as wrong.
 
-Raw numbers: [`results/cath_test219.csv`](results/cath_test219.csv).
+Raw numbers: [`results/cath_test219.csv`](results/cath_test219.csv). Full write-up with interpretation: [`protocol/01_prott5_reproduction.md`](../../protocol/01_prott5_reproduction.md).
 
 ## Setup
 

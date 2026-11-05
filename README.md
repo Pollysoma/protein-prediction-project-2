@@ -3,6 +3,7 @@
 EAT: A Benchmark for Annotation Transfer with Raw pLM Embeddings (Protein Prediction II, WS 2026/27, TUM).
 
 - [`docs/project.md`](docs/project.md): goal, research questions, data, plan
+- [`protocol/`](protocol/): experiment protocol (setup, results, interpretation per experiment)
 - [`docs/presenting.md`](docs/presenting.md): presentation checklist
 - [`presentation/`](presentation/): slide decks (RostLab template)
 - [`AGENTS.md`](AGENTS.md): how we work (git, issues, data). Read it before contributing.
