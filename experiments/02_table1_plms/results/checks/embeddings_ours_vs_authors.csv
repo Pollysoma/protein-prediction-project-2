@@ -1,0 +1,2 @@
+a,b,n_proteins,cos_sim_mean,cos_sim_min,max_abs_diff,queries_same_nn,n_queries
+ProtT5,ProtT5-ours,69824,0.999995,0.678157,0.1203,219,219

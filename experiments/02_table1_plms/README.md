@@ -24,7 +24,7 @@ Accuracy in %, ± 95 % CI. Paper values are Table 1 (Euclidean). Queries counted
 | | Euclidean | 67.6 ± 6.2 | 38.8 ± 6.5 | 21.9 ± 5.6 | 18.0 ± 6.1 |
 | | cosine | 69.9 ± 6.1 | 40.6 ± 6.6 | 24.3 ± 5.8 | 21.3 ± 6.5 |
 
-Raw numbers: [`results/euclidean.csv`](results/euclidean.csv), [`results/cosine.csv`](results/cosine.csv).
+Raw numbers: [`results/euclidean.csv`](results/euclidean.csv), [`results/cosine.csv`](results/cosine.csv). Supporting checks (`checks.py`: embedding norms, Euclidean vs cosine neighbours, our vs the authors' ProtT5 embeddings, MMseqs2 hit identities, masking) are in [`results/checks/`](results/checks/). Full write-up with interpretation: [`protocol/02_table1_plms_distance.md`](../../protocol/02_table1_plms_distance.md).
 
 ## Findings
 
