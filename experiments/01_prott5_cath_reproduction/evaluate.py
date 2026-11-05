@@ -27,13 +27,16 @@ def load_eat(eat_dir):
     return train_prottucker
 
 
-def make_splitter(eat, embedding_p, label_p):
+def make_splitter(eat, embedding_p, label_p, metric):
     class Splitter(eat.DataSplitter):
         """DataSplitter with an explicit label file and support for plain h5 keys."""
 
         def __init__(self):
             self.verbose = False
             self.id2embedding = self.get_precomputed_embeddings(embedding_p)
+            if metric == "cosine":
+                # On unit vectors the Euclidean nearest neighbour is the cosine nearest neighbour.
+                self.id2embedding = {k: v / np.linalg.norm(v) for k, v in self.id2embedding.items()}
             self.cath_label_path = label_p
             self.id2label, self.label2id = self.parse_label_mapping_cath(set(self.id2embedding))
 
@@ -105,6 +108,7 @@ def main():
     parser.add_argument("--embeddings", nargs="+", required=True, metavar="NAME=H5",
                         help="one or more embedding files, e.g. prott5_authors=prott5_cath_S100.h5")
     parser.add_argument("--mmseqs-m8", type=Path, help="MMseqs2 hits of test219 against lookup69k")
+    parser.add_argument("--metric", choices=["euclidean", "cosine"], default="euclidean")
     parser.add_argument("--out", type=Path, required=True, help="output CSV")
     args = parser.parse_args()
 
@@ -114,7 +118,7 @@ def main():
     evaluator = None
     for spec in args.embeddings:
         name, h5_path = spec.split("=", 1)
-        splitter = make_splitter(eat, Path(h5_path), args.labels)
+        splitter = make_splitter(eat, Path(h5_path), args.labels, args.metric)
         lookup = splitter.get_embeddings(sets / "lookup69k.fasta")
         test = splitter.get_embeddings(sets / "test219.fasta")
         evaluator = eat.Eval(lookup, test, splitter, n_classes=len(LEVELS))
@@ -122,23 +126,23 @@ def main():
         n = counts_per_level(evaluator)
         print(f"{name}: lookup {len(lookup)}, queries {len(test)}")
         for i, level in enumerate(LEVELS):
-            rows.append([f"EAT {name}", level, 100 * acc[i], 196 * std[i], n[i], len(lookup)])
+            rows.append([f"EAT {name}", args.metric, level, 100 * acc[i], 196 * std[i], n[i], len(lookup)])
 
     if args.mmseqs_m8:
         acc, std, n_with_hit = eval_mmseqs(evaluator, args.mmseqs_m8)
         n = counts_per_level(evaluator)
         print(f"mmseqs2: {n_with_hit} of {len(evaluator.testIdx2label)} queries have a hit")
         for i, level in enumerate(LEVELS):
-            rows.append(["MMseqs2 best hit", level, 100 * acc[i], 196 * std[i], n[i], len(evaluator.lookupIdx2label)])
+            rows.append(["MMseqs2 best hit", "e-value", level, 100 * acc[i], 196 * std[i], n[i], len(evaluator.lookupIdx2label)])
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with open(args.out, "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["method", "level", "accuracy_pct", "ci95_pct", "n_queries", "n_lookup"])
-        for method, level, acc, ci, n_q, n_l in rows:
-            writer.writerow([method, level, f"{acc:.1f}", f"{ci:.1f}", n_q, n_l])
+        writer.writerow(["method", "distance", "level", "accuracy_pct", "ci95_pct", "n_queries", "n_lookup"])
+        for method, dist, level, acc, ci, n_q, n_l in rows:
+            writer.writerow([method, dist, level, f"{acc:.1f}", f"{ci:.1f}", n_q, n_l])
     for row in rows:
-        print(f"{row[0]:<28} {row[1]}  {row[2]:5.1f} +/- {row[3]:4.1f}  (n={row[4]})")
+        print(f"{row[0]:<28} {row[1]:<9} {row[2]}  {row[3]:5.1f} +/- {row[4]:4.1f}  (n={row[5]})")
 
 
 if __name__ == "__main__":

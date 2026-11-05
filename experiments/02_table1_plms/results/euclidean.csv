@@ -1,0 +1,21 @@
+method,distance,level,accuracy_pct,ci95_pct,n_queries,n_lookup
+EAT ProSE-DLM,euclidean,C,73.5,5.8,219,69605
+EAT ProSE-DLM,euclidean,A,47.9,6.7,219,69605
+EAT ProSE-DLM,euclidean,T,27.6,6.0,210,69605
+EAT ProSE-DLM,euclidean,H,25.3,7.0,150,69605
+EAT ESM-1b,euclidean,C,78.1,5.5,219,69605
+EAT ESM-1b,euclidean,A,60.7,6.5,219,69605
+EAT ESM-1b,euclidean,T,50.5,6.7,210,69605
+EAT ESM-1b,euclidean,H,56.7,8.0,150,69605
+EAT ProtBERT,euclidean,C,67.6,6.2,219,69603
+EAT ProtBERT,euclidean,A,38.8,6.5,219,69603
+EAT ProtBERT,euclidean,T,21.9,5.6,210,69603
+EAT ProtBERT,euclidean,H,18.0,6.1,150,69603
+EAT ProtT5,euclidean,C,83.6,4.9,219,69605
+EAT ProtT5,euclidean,A,66.7,6.2,219,69605
+EAT ProtT5,euclidean,T,56.7,6.7,210,69605
+EAT ProtT5,euclidean,H,64.0,7.7,150,69605
+EAT ProSE-MT,euclidean,C,81.7,5.1,219,69605
+EAT ProSE-MT,euclidean,A,65.3,6.3,219,69605
+EAT ProSE-MT,euclidean,T,52.4,6.7,210,69605
+EAT ProSE-MT,euclidean,H,56.7,8.0,150,69605

@@ -1,13 +1,13 @@
-method,level,accuracy_pct,ci95_pct,n_queries,n_lookup
-EAT prott5_authors,C,83.6,4.9,219,69605
-EAT prott5_authors,A,66.7,6.2,219,69605
-EAT prott5_authors,T,56.7,6.7,210,69605
-EAT prott5_authors,H,64.0,7.7,150,69605
-EAT prott5_ours,C,83.6,4.9,219,69605
-EAT prott5_ours,A,66.7,6.2,219,69605
-EAT prott5_ours,T,56.7,6.7,210,69605
-EAT prott5_ours,H,64.0,7.7,150,69605
-MMseqs2 best hit,C,51.6,6.6,219,69605
-MMseqs2 best hit,A,36.1,6.4,219,69605
-MMseqs2 best hit,T,29.0,6.1,210,69605
-MMseqs2 best hit,H,34.7,7.6,150,69605
+method,distance,level,accuracy_pct,ci95_pct,n_queries,n_lookup
+EAT prott5_authors,euclidean,C,83.6,4.9,219,69605
+EAT prott5_authors,euclidean,A,66.7,6.2,219,69605
+EAT prott5_authors,euclidean,T,56.7,6.7,210,69605
+EAT prott5_authors,euclidean,H,64.0,7.7,150,69605
+EAT prott5_ours,euclidean,C,83.6,4.9,219,69605
+EAT prott5_ours,euclidean,A,66.7,6.2,219,69605
+EAT prott5_ours,euclidean,T,56.7,6.7,210,69605
+EAT prott5_ours,euclidean,H,64.0,7.7,150,69605
+MMseqs2 best hit,e-value,C,51.6,6.6,219,69605
+MMseqs2 best hit,e-value,A,36.1,6.4,219,69605
+MMseqs2 best hit,e-value,T,29.0,6.1,210,69605
+MMseqs2 best hit,e-value,H,34.7,7.6,150,69605
