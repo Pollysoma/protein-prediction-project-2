@@ -3,7 +3,7 @@
 - **Date:** 08.11.2026
 - **Issue / PR:** #22, #23
 - **Code:** [`experiments/03_calibration_set/`](../experiments/03_calibration_set/)
-- **Status:** survey done, construction rules awaiting a decision
+- **Status:** survey done; it moved the calibration set from CATH v4.3 to v4.4
 
 ## Question
 
@@ -49,19 +49,32 @@ Candidate pool: CATH-S100 v4.3 minus lookup69k, test300 and val200, i.e. 52,623 
 - This limits the sharpness of a 95 %-precision threshold in the remote regime, which is the regime the project cares about most. It does not block the work: the machinery, the curves and the validation protocol can all be developed on this set.
 - A larger benchmark built from CATH v4.4, where we define all three roles ourselves, is the way to get remote queries from many superfamilies. That is already planned as a later phase; the survey shows it is also what the calibration needs.
 
-## Proposed construction
+## Conclusion: build the calibration set in CATH v4.4, not v4.3
 
-Pending the decisions below: 1,500 queries, 300 from each of the five bands up to HVAL 20, at most 5 per superfamily, seed fixed, sampled from the 49,729 survivors; the very close band above HVAL 20 contributes the remaining anchor points. Split into two folds of equal band composition for fit and check.
+The survey was meant to decide how to carve a calibration set out of v4.3. Its answer is that the remote part of v4.3 is already spent, and the project brief points the same way: start from lookup69k and test219, then move to the non-redundant CATH v4.4 sets.
+
+ContrasTED (Miller et al. 2026), the paper our brief cites for frozen ProstT5 at 78.5 %, builds exactly the benchmark we need and reports the calibration step we want to reproduce for raw embeddings:
+
+- Splits from CATH v4.4 classes 1 to 3. One representative domain per superfamily is sampled into **disjoint validation and test sets**; from the remaining CATH S100 domains everything with at least 20 % sequence identity to a validation or test domain is removed by MMseqs2 profile search (`-s 7.5`, three iterations, 80 % bidirectional coverage). Result: 116,301 lookup domains over 5,659 superfamilies, 514 validation and 1,028 test queries. Test superfamilies left without a lookup representative are dropped.
+- Thresholds: *"calibrated a distance threshold on the validation set by selecting the largest distance retaining at least 99 % empirical precision, and applied this cutoff unchanged to the test set"*. On the test set that gate kept 64.0 % of queries at 98.5 % precision, against 55.9 % and 36.4 % coverage for CATHe2 and ProtTucker. **Frozen ProstT5 embeddings reached no threshold at 99 % validation precision at all.**
+- Numbers are reported both over all queries and over the subset whose superfamily is present in the reference set.
+
+Three consequences for us:
+
+1. **Calibration and test should be built by the same procedure**, one query per superfamily, drawn disjointly from the same pool. Then the threshold transfers by construction and the stratified sampling proposed above is unnecessary. Requirement 4 is satisfied by the construction instead of by a sampling scheme.
+2. **One query per superfamily also fixes requirement 6.** There is nothing to cap, and every query is an independent observation.
+3. **Raw embeddings may not reach a 99 % precision target.** We should state several targets (90, 95, 99 %), report coverage at each, and record "not reachable" as a legitimate result rather than lowering the target afterwards.
 
 ## Open decisions
 
-1. **Queries whose superfamily is missing from lookup69k.** 669 of the 4,150 remote candidates have no possible correct answer. Excluding them matches the paper's masking and keeps our numbers comparable; including them matches what a user faces, since nobody knows in advance whether the library contains the right family, and excluding them makes the reliability score optimistic. Proposal: build one set, record both, fit the headline mapping on all queries and report the masked variant alongside.
-2. **Difficulty mixture.** Stratified across the whole range as above, or test219-like and all-remote. Proposal: stratified, for the reason in requirement 4.
-3. **Stay in v4.3 or move to v4.4 now.** Proposal: build the v4.3 set now to develop the method, and plan the v4.4 rebuild for the final benchmark.
+1. **Queries whose superfamily is missing from the lookup set.** ContrasTED removes them at construction time and additionally reports accuracy over all queries next to accuracy over represented queries. Proposal: do both, exactly as they do.
+2. **CATH classes.** ContrasTED uses classes 1 to 3; the ProtTucker benchmark uses all four. Proposal: keep all four so our numbers stay comparable with test219, and report class 4 separately if it behaves differently.
+3. **Split sizes.** ContrasTED has 514 validation and 1,028 test queries. Proposal: the same order of magnitude, with the final numbers fixed by how many superfamilies survive the filter.
 
 ## Next steps
 
-- Decide 1 to 3, with the supervisors where needed.
-- Sampling script, frozen ID list, checksum.
-- Embed the calibration queries with every pLM and fit the first curves.
-- Repeat the exercise for EC once that dataset exists.
+- Confirm the three points above with the supervisors.
+- Build the v4.4 split: sample one domain per superfamily into disjoint calibration and test sets, filter the lookup set at 20 % identity, freeze IDs with a seed and a checksum.
+- Keep lookup69k and test219 unchanged as the reproduction benchmark.
+- Embed calibration and test with every pLM, then fit thresholds on calibration only.
+- Repeat for EC once that dataset exists.
