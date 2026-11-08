@@ -1,0 +1,8 @@
+hval_band_to_lookup69k,candidates,kept_after_test_filter,superfamilies_kept,answerable,answerable_superfamilies,answerable_cap3,answerable_cap5,answerable_cap8
+no hit,2469,1377,105,1046,87,227,329,436
+midnight (<= -5),2146,1281,102,1193,81,202,295,400
+"remote (-5, 0]",1951,1492,97,1256,86,203,295,409
+"twilight (0, 5]",2797,2545,83,2538,80,203,294,399
+"clear (5, 20]",2139,2051,59,2047,56,139,204,289
+close (> 20),41121,40983,1898,40980,1895,4197,5658,7286
+total,52623,49729,1954,49060,1924,5171,7075,9219
