@@ -13,6 +13,7 @@ Lab notebook for the project. Each experiment gets one entry that records what w
 | [02](02_table1_plms_distance.md) | 05.11.2026 | Do the other four pLMs of Table 1 reproduce, and does cosine distance change the result? | 16/20 values exact, 4 off by one query; cosine and Euclidean indistinguishable | [`experiments/02_table1_plms`](../experiments/02_table1_plms/) | #19, #21 |
 | [03](03_calibration_set_survey.md) | 08.11.2026 | What must a calibration set satisfy, and does CATH v4.3 still hold enough material? | 4,150 remote candidates but only 149 superfamilies; construction rules proposed | [`experiments/03_calibration_set`](../experiments/03_calibration_set/) | #23 |
 | [04](04_split_requirements.md) | 08.11.2026 | What must a benchmark split satisfy, according to the literature? | 28 requirements with evidence; no published EAT paper has a clean calibration set | [`experiments/04_split_requirements`](../experiments/04_split_requirements/) | #25 |
+| [05](05_data_roadmap.md) | 09.11.2026 | How do we build the lookup, calibration and test sets from CATH v4.4? | Seven-step recipe, pilot-tested; ~1,240 queries per side; seven decisions and four questions for the supervisor. Also as [HTML](05_data_roadmap.html). | [`experiments/05_split_pilot`](../experiments/05_split_pilot/) | #27 |
 
 ## Rules
 

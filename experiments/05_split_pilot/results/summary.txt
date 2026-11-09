@@ -1,0 +1,23 @@
+CATH v4.4 split pilot
+Seed: 42
+Eligible superfamilies: 4339
+Eligible domains: 120960
+Calibration query families: 1000
+Test query families: 1000
+Candidate lookup before filter: 121251
+Domains removed: 21950
+Lookup after filter: 99301
+Lookup superfamilies after filter: 5775
+Calibration families lost: 428
+Test families lost: 424
+Surviving calibration queries: 572
+Surviving test queries: 576
+Cross-role pairs at or above 20% identity: 0
+Calibration queries with no hit: 550
+Test queries with no hit: 539
+Calibration queries above HVAL 0: 0
+Test queries above HVAL 0: 1
+Calibration queries involved in a cross-role violation: 0
+Test queries involved in a cross-role violation: 0
+Main MMseqs2 search wall-clock: 5.6s
+Cross-role search wall-clock: 7.3s

@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How we build the data — PP2 EAT benchmark</title>
+<style>
+  :root{
+    --bg:#ffffff; --fg:#14171a; --muted:#6b7280; --line:#e4e7eb;
+    --accent:#2d7ff9; --accent-soft:#e8f1fe; --warm:#fdeee4; --cool:#e8f5ec;
+    --good:#1f8a4c; --maxw:860px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#15181c; --fg:#e8eaed; --muted:#9aa3ad; --line:#2b3036;
+           --accent:#5b9dff; --accent-soft:#1c2733; --warm:#2e2520; --cool:#1d2a22; --good:#4cc47f; }
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:56px 24px 96px}
+  header{border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:36px}
+  h1{font-size:30px;font-weight:600;letter-spacing:-.4px;margin:0 0 8px}
+  .meta{color:var(--muted);font-size:14px}
+  .meta span+span::before{content:"·";margin:0 8px}
+  h2{font-size:20px;font-weight:600;letter-spacing:-.2px;margin:44px 0 12px;
+     padding-top:20px;border-top:1px solid var(--line)}
+  h2:first-of-type{border-top:0;padding-top:0}
+  h3{font-size:16px;font-weight:600;margin:26px 0 6px}
+  p{margin:0 0 12px}
+  .lead{color:var(--muted)}
+  ul,ol{margin:0 0 12px;padding-left:22px}
+  li{margin-bottom:5px}
+  table{width:100%;border-collapse:collapse;margin:14px 0 18px;font-size:15px}
+  th,td{text-align:left;padding:9px 12px 9px 0;border-bottom:1px solid var(--line);vertical-align:top}
+  thead th{font-weight:500;color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.4px}
+  td.n,th.n{white-space:nowrap;color:var(--muted)}
+  td.key{font-weight:600;width:28px}
+  code{font:13.5px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+       background:var(--accent-soft);padding:1px 5px;border-radius:4px}
+  figure{margin:20px 0 24px}
+  figure svg{width:100%;height:auto;display:block;overflow:visible}
+  figcaption{color:var(--muted);font-size:13.5px;margin-top:6px}
+  .note{background:var(--accent-soft);border-radius:8px;padding:14px 16px;margin:18px 0;font-size:15px}
+  .note strong{font-weight:600}
+  .ask li{margin-bottom:12px}
+  .ask b{font-weight:600}
+  svg text{font:13px -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Helvetica,Arial,sans-serif;fill:var(--fg)}
+  svg .s{font-size:12px;fill:var(--muted)}
+  svg .num{font-size:12px;fill:#fff}
+  svg .dot{fill:var(--muted)}
+  svg .dot-key{fill:var(--accent)}
+  svg .spine,svg .rule{stroke:var(--line);stroke-width:2}
+  svg .thin{stroke:var(--line);stroke-width:1.5}
+  svg .bar{fill:var(--accent)}
+  svg .chip{font-size:11px;fill:var(--accent)}
+  svg .q{fill:var(--accent)}
+  svg .gone{fill:var(--line)}
+  svg .keep{fill:var(--accent);opacity:.55}
+  svg .x{stroke:var(--muted);stroke-width:1.5}
+  svg .good{fill:var(--good);font-size:13px}
+  svg .box-a{fill:var(--accent-soft)}
+  svg .box-b{fill:var(--warm)}
+  svg .box-c{fill:var(--cool)}
+  @media print{
+    :root{--bg:#fff;--fg:#000}
+    .wrap{padding:0;max-width:none}
+    h2{break-after:avoid}
+    figure,table,.note{break-inside:avoid}
+  }
+  @media (max-width:560px){ .wrap{padding:32px 16px 64px} h1{font-size:25px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>How we build the data</h1>
+  <div class="meta">
+    <span>PP2 &middot; embedding-based annotation transfer</span>
+    <span>9 November 2026</span>
+    <span>proposal for the supervisor meeting</span>
+  </div>
+</header>
+
+<h2>What we are building, and why three sets</h2>
+
+<p>Our method is simple: take a protein, find the most similar protein in a labelled library, copy its label. To measure how well that works we need three sets.</p>
+
+<table>
+  <thead><tr><th>Set</th><th>What it is for</th></tr></thead>
+  <tbody>
+    <tr><td class="n"><b>library</b></td><td>the collection we search in. Every entry has a label.</td></tr>
+    <tr><td class="n"><b>calibration</b></td><td>questions we practise on</td></tr>
+    <tr><td class="n"><b>test</b></td><td>questions we grade on, used once</td></tr>
+  </tbody>
+</table>
+
+<p>Two sets would be enough if we only wanted an accuracy number. We want more than that. We want to be able to say <em>“if the match is closer than X, you can trust it”</em>. X is a number we fit from data. If we fit X on the test questions, the test stops being a test. So we fit on calibration and leave test alone until the very end.</p>
+
+<h2>Where the data comes from</h2>
+
+<p>CATH v4.4: a catalogue of protein pieces, called domains, sorted by shape into families. <b>123,251 domains in 6,630 families.</b> The family is what we try to predict.</p>
+
+<p class="lead">Two families used as examples throughout: <code>2.60.40.10</code> is huge, 10,133 domains. <code>1.10.8.130</code> has exactly two, <code>1gvnA00</code> and <code>2p5tA00</code>.</p>
+
+<h2>The seven steps</h2>
+
+<figure>
+<svg viewBox="0 0 760 330" role="img" aria-label="Seven steps from all of CATH v4.4 to three frozen sets, with counts after each step">
+  <line class="spine" x1="20" y1="24" x2="20" y2="306"/>
+
+  <g><circle class="dot" cx="20" cy="30" r="11"/><text class="num" x="20" y="34" text-anchor="middle">1</text>
+  <text x="44" y="26">All of CATH v4.4</text>
+  <text class="s" x="44" y="43">protein pieces, grouped into families by shape</text>
+  <text x="750" y="26" text-anchor="end">123,251 domains</text>
+  <text class="s" x="750" y="43" text-anchor="end">6,630 families</text></g>
+
+  <g><circle class="dot" cx="20" cy="76" r="11"/><text class="num" x="20" y="80" text-anchor="middle">2</text>
+  <text x="44" y="72">Keep families with at least 2 domains</text>
+  <text class="s" x="44" y="89">one to ask with, one to answer with</text>
+  <text x="750" y="72" text-anchor="end">4,339 families</text>
+  <text class="s" x="750" y="89" text-anchor="end">2,291 too small</text></g>
+
+  <g><circle class="dot" cx="20" cy="122" r="11"/><text class="num" x="20" y="126" text-anchor="middle">3</text>
+  <text x="44" y="118">Take one question per family<tspan class="chip" dx="8">A</tspan></text>
+  <text class="s" x="44" y="135">siblings stay in the library</text>
+  <text x="750" y="118" text-anchor="end">4,339 questions</text>
+  <text class="s" x="750" y="135" text-anchor="end">library 121,251</text></g>
+
+  <g><circle class="dot" cx="20" cy="168" r="11"/><text class="num" x="20" y="172" text-anchor="middle">4</text>
+  <text x="44" y="164">Deal families out: half calibration, half test<tspan class="chip" dx="8">E</tspan></text>
+  <text class="s" x="44" y="181">a family goes wholly to one side, never both</text>
+  <text x="750" y="164" text-anchor="end">~2,170 calibration</text>
+  <text class="s" x="750" y="181" text-anchor="end">~2,169 test</text></g>
+
+  <g><circle class="dot-key" cx="20" cy="214" r="11"/><text class="num" x="20" y="218" text-anchor="middle">5</text>
+  <text x="44" y="210">Delete library entries too similar to any question<tspan class="chip" dx="8">B F</tspan></text>
+  <text class="s" x="44" y="227">above 20 % similarity &middot; MMseqs2 &middot; run once, for all questions together</text>
+  <text class="s" x="750" y="210" text-anchor="end">&minus;21,950</text>
+  <text x="750" y="227" text-anchor="end">library 99,301</text></g>
+
+  <g><circle class="dot-key" cx="20" cy="260" r="11"/><text class="num" x="20" y="264" text-anchor="middle">6</text>
+  <text x="44" y="256">Drop questions with no answer left<tspan class="chip" dx="8">C</tspan></text>
+  <text class="s" x="44" y="273">the family lost its last entry in the library</text>
+  <text x="750" y="256" text-anchor="end">~1,240 each side</text>
+  <text class="s" x="750" y="273" text-anchor="end">small families hit hardest</text></g>
+
+  <g><circle class="dot" cx="20" cy="306" r="11"/><text class="num" x="20" y="310" text-anchor="middle">7</text>
+  <text x="44" y="310">Freeze: three ID lists, the seed, checksums, the script</text></g>
+</svg>
+<figcaption>Letters mark the decisions listed further down, at the step where each one applies.</figcaption>
+</figure>
+
+<h3>Step 3 — why only one question per family</h3>
+<p>One per family stops the handful of huge families from dominating everything. Both papers we compare against do the same. The domain is picked at random with a fixed seed.</p>
+
+<h3>Step 4 — why we do not shuffle randomly</h3>
+<p>This is the step where a plain random split would be wrong. If we shuffled the 123,251 domains, near-identical twins would end up one in calibration and one in test, and we would be measuring memory instead of transfer. So we split whole families, and only then randomise inside that rule.</p>
+
+<h3>Step 5 — the 20 % deletion</h3>
+<p>If a near-copy of the question sits in the library, finding it is trivial and proves nothing: plain sequence search already solves that case in a second. 20 % is the standard line in this field, below which sequence comparison stops being reliable.</p>
+
+<div class="note">
+<strong>Two things worth knowing about this step.</strong>
+It runs <b>once</b>, before anything else, and produces one fixed library that every question searches. Nothing is filtered later, at search time.
+And an entry is deleted if it is too similar to <em>any</em> question, not only to yours — so most of what is missing from your library was removed because of somebody else’s question.
+</div>
+
+<h3>Step 6 — why some questions have to be thrown away</h3>
+
+<p>Step 5 can delete a family’s last remaining entry. Then the question has no possible right answer and has to go.</p>
+
+<figure>
+<svg viewBox="0 0 760 200" role="img" aria-label="A two-domain family loses its only answer and is dropped; a large family keeps distant relatives and is kept">
+  <text x="0" y="14">2 domains &middot; 1.10.8.130</text>
+  <circle class="q" cx="46" cy="68" r="18"/><text class="num" x="46" y="72" text-anchor="middle">Q</text>
+  <text class="s" x="46" y="102" text-anchor="middle">1gvnA00</text>
+  <line class="thin" x1="64" y1="68" x2="150" y2="68"/>
+  <circle class="gone" cx="168" cy="68" r="18"/>
+  <line class="x" x1="156" y1="56" x2="180" y2="80"/><line class="x" x1="180" y1="56" x2="156" y2="80"/>
+  <text class="s" x="168" y="102" text-anchor="middle">2p5tA00</text>
+  <text class="s" x="0" y="134">the only possible answer was more than 20 % similar</text>
+  <text class="s" x="0" y="155" style="fill:var(--fg)">question dropped</text>
+  <text class="s" x="0" y="178">happens to 75 % of 2-domain families</text>
+
+  <line class="rule" x1="360" y1="0" x2="360" y2="192" stroke-width="1"/>
+
+  <text x="396" y="14">10,133 domains &middot; 2.60.40.10</text>
+  <circle class="q" cx="442" cy="68" r="18"/><text class="num" x="442" y="72" text-anchor="middle">Q</text>
+  <text class="s" x="442" y="102" text-anchor="middle">3lmjL01</text>
+  <line class="thin" x1="460" y1="68" x2="534" y2="68"/>
+  <g class="gone">
+    <circle cx="554" cy="42" r="9"/><circle cx="582" cy="58" r="9"/><circle cx="554" cy="74" r="9"/>
+    <circle cx="580" cy="90" r="9"/><circle cx="552" cy="102" r="9"/>
+  </g>
+  <g class="keep"><circle cx="648" cy="48" r="9"/><circle cx="676" cy="64" r="9"/><circle cx="650" cy="82" r="9"/></g>
+  <text class="s" x="538" y="128" text-anchor="middle">close ones deleted</text>
+  <text class="s" x="684" y="128" text-anchor="middle">distant ones stay</text>
+  <text class="good" x="396" y="155">question kept</text>
+  <text class="s" x="396" y="178">happens to 98 % of families above 100 domains</text>
+</svg>
+</figure>
+
+<figure>
+<svg viewBox="0 0 760 140" role="img" aria-label="Share of questions that keep a usable answer: 25 percent for two-domain families, 53 percent for three to ten, 88 percent for eleven to one hundred, 98 percent above one hundred">
+  <text x="0" y="12">Questions that keep a usable answer</text>
+  <line class="rule" x1="160" y1="22" x2="160" y2="124" stroke-width="1"/>
+  <line class="rule" x1="620" y1="22" x2="620" y2="124" stroke-width="1"/>
+  <text class="s" x="0" y="42" style="fill:var(--fg)">2 domains</text>
+  <text class="s" x="0" y="68" style="fill:var(--fg)">3–10</text>
+  <text class="s" x="0" y="94" style="fill:var(--fg)">11–100</text>
+  <text class="s" x="0" y="120" style="fill:var(--fg)">more than 100</text>
+  <rect class="bar" x="160" y="30" width="115" height="16" rx="2"/>
+  <rect class="bar" x="160" y="56" width="244" height="16" rx="2"/>
+  <rect class="bar" x="160" y="82" width="405" height="16" rx="2"/>
+  <rect class="bar" x="160" y="108" width="451" height="16" rx="2"/>
+  <text class="s" x="285" y="43">25 %</text><text class="s" x="414" y="69">53 %</text>
+  <text class="s" x="575" y="95">88 %</text><text class="s" x="630" y="121">98 %</text>
+</svg>
+</figure>
+
+<p><b>Being picked is not affected by size.</b> Every eligible family gets exactly one ticket, whether it holds 2 domains or 10,000. The imbalance appears only here, at survival. What comes out the other side leans towards large families, which are also the easier ones, so we report results split by family size instead of as one average.</p>
+
+<p>Expected size after this step: about <b>1,240 questions in calibration and about 1,240 in test</b> — roughly 57 % of the 2,170 per side. The pilot drew 1,000 per side and kept 572 and 576.</p>
+
+<h2>The one real problem, and our fix</h2>
+
+<p>After step 5, <b>94–96 % of the remaining questions have no detectable sequence match in the library at all.</b> That is not a bug. It follows directly from deleting every close relative, and it is exactly how the published benchmark we reproduced was built.</p>
+
+<p>But it blocks two things we need:</p>
+<ul>
+  <li>The brief asks for accuracy grouped by how similar the question is to the library. Those groups would be empty.</li>
+  <li>A cutoff that gives 95 % reliability probably only exists among close matches. On an all-remote set the best model is right about 64 % of the time, so there may be no cutoff at all to find.</li>
+</ul>
+
+<figure>
+<svg viewBox="0 0 760 180" role="img" aria-label="The same questions are searched against two libraries: the remote library of 99,301 entries for the headline result, and the full library of 121,251 entries for similarity groups and a usable cutoff range">
+  <rect class="box-a" x="0" y="50" width="196" height="64" rx="8"/>
+  <text x="98" y="76" text-anchor="middle">same questions</text>
+  <text class="s" x="98" y="96" text-anchor="middle">~1,240 calibration + ~1,240 test</text>
+  <line class="thin" x1="196" y1="70" x2="290" y2="40"/>
+  <line class="thin" x1="196" y1="96" x2="290" y2="126"/>
+  <rect class="box-b" x="290" y="10" width="470" height="60" rx="8"/>
+  <text x="308" y="32">remote library &middot; 99,301 entries</text>
+  <text class="s" x="308" y="54">headline result, comparable with the published work</text>
+  <rect class="box-c" x="290" y="96" width="470" height="60" rx="8"/>
+  <text x="308" y="118">full library &middot; 121,251 entries</text>
+  <text class="s" x="308" y="140">similarity groups, and a range where a cutoff exists</text>
+</svg>
+<figcaption>The questions are identical in both. Only the library changes, and the embeddings are computed once, so the second version costs nothing but search time. Step 6 does not apply to the full library, because nothing is deleted there.</figcaption>
+</figure>
+
+<h2>Decisions we have made</h2>
+
+<table>
+  <thead><tr><th class="n">&nbsp;</th><th>Decision</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td class="key">A</td><td>One question per family, picked at random with a fixed seed</td>
+        <td>Picking the longest or best-resolved domain would bias towards long or well-studied proteins. No paper defends either.</td></tr>
+    <tr><td class="key">B</td><td>Delete at 20 % similarity, 80 % coverage, using MMseqs2</td>
+        <td>Copied exactly from ProtTucker. ContrasTED and CATHe use the same.</td></tr>
+    <tr><td class="key">C</td><td>Accept that large families survive more often, and report results split by size</td>
+        <td>Correcting it would trade one bias for another. Showing the split is honest and lets others compare.</td></tr>
+    <tr><td class="key">D</td><td>Build both libraries, remote and full</td>
+        <td>One gives comparability with the literature, the other gives what the brief asks for. Cheap, because the embeddings are shared.</td></tr>
+    <tr><td class="key">E</td><td>Keep CATH classes 4 and 6, but report them on their own line</td>
+        <td>They are about 2 % of questions, so folding them into the headline adds noise. ContrasTED deletes them; we would rather keep and label them.</td></tr>
+    <tr><td class="key">F</td><td>On the remote library, also apply the length-aware version of the 20 % rule</td>
+        <td>A flat 20 % ignores length. One pilot question sat at 19.9 % similarity over 412 residues, which is still findable by sequence search. The length-aware rule catches that, and it is what ProtTucker used.</td></tr>
+    <tr><td class="key">G</td><td>Declare the reliability targets in advance: 90, 95, 99 %</td>
+        <td>Picking them after seeing results would be cherry-picking. We publish “not reachable” where no cutoff exists.</td></tr>
+  </tbody>
+</table>
+
+<p class="lead">Tell us if you disagree with any of these. D and F are the two where your opinion helps us most, because they change what the benchmark measures rather than how it is built.</p>
+
+<h2>Questions for you</h2>
+
+<ol class="ask">
+  <li><b>The other group.</b> Who is working on the same project, and how do we reach them? We would like to avoid building the same thing twice, and to agree on a shared format.</li>
+  <li><b>CATH v4.3 as well, or only v4.4?</b> Our plan is to build the new data on v4.4 and keep our v4.3 reproduction as the anchor to the published numbers, since the published benchmark is v4.3. The two versions are almost the same size, so this is about comparability, not about more data. Is that what you expect?</li>
+  <li><b>Two libraries or one?</b> Decision D.</li>
+  <li><b>The stricter, length-aware remoteness rule?</b> Decision F.</li>
+</ol>
+
+<h2>What happens after the meeting</h2>
+
+<ol>
+  <li>Freeze the input files. One day.</li>
+  <li>Build and check the data, both libraries. Two days.</li>
+  <li>Compute embeddings for all models, over the library and both question sets. One to two days on the GPU.</li>
+  <li>Fit the cutoffs on calibration only, then freeze them.</li>
+  <li>Run the test once.</li>
+  <li>Then the same structure for EC numbers, which needs its own agreement because the labels are messier there.</li>
+</ol>
+
+<h2>Two traps we already hit</h2>
+
+<p class="lead">Both are handled in the script now, but worth stating so nobody repeats them.</p>
+<ul>
+  <li>A flat 20 % cut does not mean the pair is undetectable. Over 412 residues, 19.9 % similarity is still a real match.</li>
+  <li>MMseqs2 silently caps how many matches it reports per question. Raising that cap changed the library from 100,540 to 99,301 entries, so the first version of the filter was too weak.</li>
+</ul>
+
+</div>
+</body>
+</html>
