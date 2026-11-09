@@ -1,138 +1,116 @@
-# 05: Data split roadmap
+# 05: How we build the data
 
 - **Date:** 09.11.2026
 - **Issue / PR:** #26, #27
-- **Status:** proposal, for the supervisor meeting
-- **Backing material:** the 28 requirements and their sources in [`04_split_requirements.md`](04_split_requirements.md); what the reference papers actually did in [`recipe-verification.md`](../experiments/05_split_pilot/notes/recipe-verification.md); a full pilot run with real numbers in [`experiments/05_split_pilot/`](../experiments/05_split_pilot/).
+- **Status:** proposal for the supervisor meeting
+- **Evidence behind every number here:** [`04_split_requirements.md`](04_split_requirements.md) for the rules and where they come from, [`experiments/05_split_pilot/`](../experiments/05_split_pilot/) for the test run.
 
-## What we want at the end
+## What we are building and why
 
-Three sets of CATH domains:
+Our method is simple: take a protein, find the most similar protein in a labelled library, copy its label. To measure how well that works we need three sets.
 
-| Set | Role | Rough size |
-| --- | --- | --- |
-| **lookup** | the labelled library we search in | ~100,000 domains |
-| **calibration** | where we tune settings and fit distance thresholds | ~1,200 queries |
-| **test** | the final numbers, touched once | ~1,200 queries |
+| Set | What it is for |
+| --- | --- |
+| **lookup** | the library we search in. Every entry has a label. |
+| **calibration** | questions we practise on |
+| **test** | questions we grade on, used once |
 
-Why three and not two: a distance threshold is a fitted number. If we fit "0.7 means 95 % precision" on the test set, the test set no longer tests anything. Calibration exists so that test stays untouched.
+Two sets would be enough if we only wanted an accuracy number. We want more than that: we want to say "if the match is closer than X, you can trust it". X is a number we have to fit from data. If we fit X on the test questions, the test stops being a test. So we fit on calibration and leave test alone until the very end.
 
-## The recipe
+## Where the data comes from
 
-### Step 0 — the input
+CATH v4.4. It is a catalogue of protein pieces, called domains, sorted by shape into families. 123,251 domains in 6,630 families. The family is what we try to predict.
 
-CATH v4.4, **S100** level: 123,251 domains, grouped into 6,630 superfamilies. S100 means duplicates are collapsed, nothing else, so it is the largest version of CATH. The superfamily (the "H" in CATH) is the label we try to predict and also our unit of splitting.
+Two families we use as examples below: `2.60.40.10` is huge, 10,133 domains. `1.10.8.130` has exactly two, `1gvnA00` and `2p5tA00`.
 
-*Example:* superfamily `2.60.40.10` (immunoglobulin-like) holds 10,133 domains. Superfamily `1.10.8.130` holds exactly two: `1gvnA00` and `2p5tA00`.
+## The seven steps
 
-### Step 1 — which superfamilies can supply a query
+**1. Start with all of CATH v4.4.** 123,251 domains, 6,630 families.
 
-A superfamily needs **at least two domains**: one to become the query, at least one to stay in the lookup as the correct answer. 4,339 of 6,630 families qualify. The rest are single-domain families; they stay in the lookup but never supply a query.
+**2. Keep families with at least two domains.** One domain becomes the question, so at least one other has to stay in the library as the answer. 4,339 families qualify. The rest stay in the library but never produce a question.
 
-### Step 2 — one query per superfamily
+**3. Take one question per family.** Just one, picked at random with a fixed seed. Its siblings stay in the library. One per family stops the few huge families from dominating everything. Both papers we compare against do the same.
 
-From each eligible family we pull exactly **one** domain as the query. All its siblings stay in the lookup.
+**4. Deal the families out, half to calibration and half to test.** A family goes entirely to one side. The two sides never share a family.
 
-*Example:* from `2.60.40.10` we take `3lmjL01` as a query; the other 10,132 domains remain in the lookup.
+This is the step where a plain random split would be wrong. If we shuffled the 123,251 domains instead, near-identical twins would end up one in calibration and one in test, and we would be measuring memory instead of transfer.
 
-One query per family keeps the benchmark from being dominated by the handful of huge families. Both reference papers do the same.
+**5. Remove library entries that are too similar to a question.** Anything above 20 % sequence similarity to any question is deleted. We use MMseqs2 for this. In the pilot it removed 21,950 of 121,251 entries, leaving 99,301.
 
-> **Decision A — which domain?** We propose random with a fixed seed. The alternatives (longest domain, best crystal resolution) bias towards long or well studied proteins, and no paper defends either.
+Why: if a near-copy of the question sits in the library, finding it is trivial and proves nothing. Plain sequence search already solves that case in a second. 20 % is the standard line in this field, below which sequence comparison stops being reliable.
 
-### Step 3 — split the families, not the domains
+Two things worth knowing about this step. It runs **once**, before anything else, and produces one fixed library that every question searches. Nothing is filtered later, at search time. And an entry is deleted if it is too similar to *any* question, not just to yours, so most of what is missing from your library was removed because of somebody else's question.
 
-The 4,339 eligible families are dealt out **50/50 to calibration and test**. A superfamily goes entirely to one side; calibration and test never share a superfamily.
+**6. Drop questions that no longer have an answer.** Step 5 can delete a family's last remaining entry. Then the question is unanswerable and has to go.
 
-This is the one place where "random split" would be wrong. If we shuffled the 123,251 domains, two near-identical immunoglobulins would land one in calibration and one in test, and we would be measuring memorisation rather than transfer. Splitting by group and then removing residual similarity is the standard in this field ([`splitting-practice.md`](../experiments/05_split_pilot/notes/splitting-practice.md)).
+Example: `1.10.8.130` has two domains. `1gvnA00` becomes the question, so `2p5tA00` is the only possible answer. It is more than 20 % similar to the question, so step 5 deletes it. Nothing in the library carries that label any more, so every answer would be wrong by construction. We drop the question.
 
-Random *within* the constraint, with a seed, and stratified so both roles get a comparable mix of CATH classes and family sizes.
+This hits small families hardest:
 
-### Step 4 — the 20 % filter
-
-Remove from the lookup **every domain that is more than 20 % sequence-identical to any query**. MMseqs2, iterative profile search, 80 % bidirectional coverage. This is verbatim the ProtTucker recipe and is also what ContrasTED and CATHe use; 20 % is the classic "twilight zone" boundary below which sequence search stops being reliable.
-
-Pilot: 21,950 of 121,251 candidate lookup domains removed, leaving 99,301.
-
-Why: without it, a query's near-twin sits in the lookup, nearest-neighbour transfer is trivial, and the benchmark says nothing about whether embeddings beat sequence search.
-
-> **Decision B — coverage parameter.** We used 80 % bidirectional, following ContrasTED. We propose keeping it and reporting what a stricter value would change.
-
-### Step 5 — drop the queries that no longer have an answer
-
-The filter can delete a family's *only* remaining lookup member. Then that query has no correct answer at the H level and must go.
-
-*Example:* `1.10.8.130` = {`1gvnA00`, `2p5tA00`}. `1gvnA00` becomes the query, `2p5tA00` is the only possible answer — and it is more than 20 % identical to the query, so step 4 deletes it. The family is now unanswerable and the query is dropped.
-
-This hits small families hard. Survival in the pilot:
-
-| Family size | Survives the filter |
+| Family size | Keeps a usable answer |
 | --- | --- |
 | 2 domains | 25 % |
 | 3–10 | 53 % |
 | 11–100 | 88 % |
 | more than 100 | 98 % |
 
-Picking a query is size-blind: every eligible family gets exactly one ticket, whether it holds 2 domains or 10,000. The skew appears only here, at survival — so the surviving query set is enriched in large families.
+Being picked is not affected by size: every eligible family gets exactly one ticket, whether it holds 2 domains or 10,000. The imbalance appears only here, at survival. What comes out the other side is weighted towards large families, which are also the easier ones, so we report results split by family size rather than as one average.
 
-> **Decision C — what to do about that skew.** Options: require at least three domains; oversample small families so survivors come out balanced; or accept it and report it. We propose **accepting and reporting**, with results stratified by family size, since any correction trades one bias for another. Using all 4,339 families should give ~1,240 queries per role.
+Expected size after this step: about 1,240 questions in calibration and about 1,240 in test. Roughly 57 % of 2,170 per side. The pilot drew 1,000 per side and kept 572 and 576.
 
-### Step 6 — same filter between calibration and test
-
-Calibration and test queries must not be each other's near-twins either, or a threshold fitted on one leaks into the other. Pilot: 0 violating pairs, because disjoint superfamilies already implies this in practice — but we check rather than assume.
-
-### Step 7 — freeze
-
-Three ID lists, the seed, checksums of the input files, the MMseqs2 version, a counts table after every step, and the script that regenerates all of it. After the freeze the split does not change; if it must, it gets a new version number.
+**7. Freeze.** Three lists of IDs, the random seed, checksums of the input files, the MMseqs2 version, a count after every step, and the script that reproduces all of it. After this the data does not change. If it has to, it gets a new version number.
 
 ## The one real problem
 
-After step 4, **94–96 % of surviving queries have no detectable sequence hit in the lookup at all.** That is not a bug, it is the direct consequence of deleting every relative above 20 %. It is also exactly how the published `test219` was built.
+After step 5, 94–96 % of the remaining questions have no detectable sequence match in the library at all. That is not a bug. It follows directly from deleting every close relative, and it is exactly how the published benchmark we reproduced was built.
 
-But it collides with two things we need:
+But it blocks two things we need:
 
-- the brief asks for accuracy **binned by sequence identity** to the lookup — those bins would be empty;
-- a 95 %-precision threshold probably only exists among *close* neighbours. On an all-remote set the best model is right about 64 % of the time at the H level, so there may be no distance at which precision reaches 95 % and no threshold can be fitted.
+- The project brief asks for accuracy grouped by how similar the question is to the library. Those groups would be empty.
+- A cutoff that gives 95 % reliability probably only exists among close matches. On an all-remote set the best model is right about 64 % of the time, so there may be no cutoff at all to find.
 
-**Our proposal: one pair of query sets, two lookups.** The queries are fixed. What changes is the library.
+**Our fix: same questions, two libraries.**
 
-| Track | Lookup | Answers |
+| Library | Contents | What we get from it |
 | --- | --- | --- |
-| **remote** | after the 20 % filter (99,301) | does EAT beat sequence search in the hard regime; comparable to ProtTucker and ContrasTED |
-| **full** | every non-query domain, unfiltered (121,251) | realistic transfer across the whole identity range; gives the identity bins and a range where thresholds exist |
+| **remote** | after the 20 % deletion, 99,301 entries | the headline result, directly comparable to the published work |
+| **full** | everything except the questions, 121,251 entries | the similarity groups the brief asks for, and a range where a cutoff actually exists |
 
-Embeddings are computed once, so the second track costs only search time. Thresholds are fitted separately per track, because a threshold belongs to a model *and* the library it searches. Step 5 disappears on the full track, since nothing is removed.
+The questions are identical in both. Only the library changes. We compute the embeddings once, so the second version costs nothing but search time. Step 6 does not apply to the full library, because nothing is deleted there.
 
-> **Decision D — two tracks or one?** We propose two. If one, which.
+## Decisions we have made
 
-## What we ask the supervisor to settle
-
-| | Question | Our proposal |
+| | Decision | Why |
 | --- | --- | --- |
-| A | Which domain represents a family? | random, fixed seed |
-| B | Coverage for the 20 % filter | 80 % bidirectional, report sensitivity |
-| C | Small-family skew | accept, report stratified by size |
-| D | Two tracks or one | two |
-| E | Keep CATH classes 4 and 6? (~2 % of queries; ContrasTED drops them) | keep, report separately |
-| F | Add ProtTucker's stricter HVAL ≤ 0 step on top of 20 %? | yes, remote track only |
-| G | Which precision targets to declare in advance? | 90 / 95 / 99 %, and publish "not reachable" where it is |
+| A | One question per family, picked at random with a fixed seed | Picking the longest or the best-resolved domain would bias towards long or well-studied proteins. No paper defends either. |
+| B | 20 % similarity, 80 % coverage, MMseqs2 | Copied exactly from ProtTucker; ContrasTED and CATHe use the same. |
+| C | Accept that large families survive more often, and report results split by size | Correcting it would trade one bias for another. Showing the split is honest and lets others compare. |
+| D | Build both libraries, remote and full | One gives comparability with the literature, the other gives what the brief asks for. Cheap, because the embeddings are shared. |
+| E | Keep CATH classes 4 and 6, but report them on their own line | They are about 2 % of questions, so folding them into the headline adds noise. ContrasTED deletes them; we would rather keep and label them. |
+| F | On the remote library, also apply the length-aware version of the 20 % rule | A flat 20 % ignores length. One pilot question sat at 19.9 % similarity over 412 residues, which is still findable by sequence search. The length-aware rule (HVAL) catches that; it is also what ProtTucker used. |
+| G | Declare the reliability targets in advance: 90, 95, 99 % | Picking them after seeing results would be cherry-picking. We publish "not reachable" where no cutoff exists. |
 
-## Then
+Tell us if you disagree with any of these. D and F are the two where your opinion would help us most, because they change what the benchmark measures rather than how it is built.
 
-1. **Freeze inputs** — CATH v4.4 files, checksums, MMseqs2 version. 1 day.
-2. **This meeting** — agree A–G.
-3. **Build and verify the split** — both tracks, three manifests, verification suite. 2 days.
-4. **Embed** — all pLMs over lookup and both query sets, pinned by revision. 1–2 days GPU.
-5. **Calibrate** — on calibration only; thresholds per pLM, task, level, track. Freeze.
-6. **Test once** — accuracy with intervals, coverage at the frozen thresholds, identity bins, leakage check.
-7. **EC** — same skeleton, but the labels are the hard part (evidence is per reaction, so one entry can mix measured and inferred EC numbers). Needs its own agreement, after CATH is frozen.
+## Questions for you
 
-## Deliberately not doing
+1. **The other group.** Who is working on the same project, and how do we reach them? We would like to avoid building the same thing twice and to agree on a shared format.
+2. **CATH v4.3 as well, or only v4.4?** Our plan is to build the new data on v4.4 and keep our v4.3 reproduction as the anchor to the published numbers, since the published benchmark is v4.3. The two versions are almost the same size, so this is about comparability, not about more data. Is that what you expect?
+3. **Two libraries or one?** Decision D above.
+4. **The stricter remoteness rule?** Decision F above.
 
-- No structure-based redundancy filter — CATH already groups by structure.
-- No profile-profile search at 10 % identity, the only recipe that would genuinely support a topology-level separation claim. We stay at 20 % for comparability and say plainly what it does and does not guarantee.
-- No conformal prediction in the first pass. The empirical rule — largest distance that still meets the target precision on calibration — is what ContrasTED used and is enough. Conformal risk control is a sensible second step.
+## What happens after the meeting
 
-## Two traps worth keeping in the script
+1. Freeze the input files. One day.
+2. Build and check the data, both libraries. Two days.
+3. Compute embeddings for all models over the library and both question sets. One to two days on the GPU.
+4. Fit the cutoffs on calibration only, then freeze them.
+5. Run the test once.
+6. Then the same structure for EC numbers, which needs its own agreement because the labels are messier there.
 
-- A flat 20 % cut does **not** imply HVAL ≤ 0. One pilot test query sits at 19.9 % identity over 412 residues, which is HVAL 0.39.
-- MMseqs2's default cap on hits per query silently weakens the filter. Raising `--max-seqs` from 5,000 to 20,000 changed the lookup from 100,540 to 99,301 domains.
+## Two traps we already hit
+
+Both are in the script now, but worth stating so nobody repeats them.
+
+- A flat 20 % cut does not mean the pair is undetectable. Over 412 residues, 19.9 % similarity is still a real match.
+- MMseqs2 silently caps how many matches it reports per query. Raising that cap changed the library from 100,540 to 99,301 entries, so the first version of the filter was too weak.
