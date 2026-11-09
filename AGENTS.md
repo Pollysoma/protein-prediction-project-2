@@ -58,3 +58,4 @@ GitHub Issues hold our tasks, decisions and meeting protocols. If it is not in a
 - Follow the git workflow above: worktree, branch, PR, cleanup. Do not merge your own PR unless a human asks you to.
 - Prefer plain, readable Python that fits the existing code. Avoid speculative abstractions.
 - Report results honestly. Never oversell, and flag anything you could not verify. Each of us has to be able to explain every line we present.
+- GPU server access and local environment notes live in `SERVER.local.md`, which is gitignored. This repository is public, so credentials and host details never go into a tracked file.

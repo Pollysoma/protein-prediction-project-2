@@ -20,3 +20,6 @@ data/
 .idea/
 .vscode/
 ~$*
+
+# local environment notes (credentials, never committed)
+SERVER.local.md
