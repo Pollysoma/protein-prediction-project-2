@@ -1,0 +1,13 @@
+CATH v4.4 pilot split
+seed=42
+identity_field=fident
+identity_cutoff=0.20 (fraction, inclusive)
+coverage_mode=0 (bidirectional)
+coverage_cutoff=0.80
+alignment_mode=3 (identical aligned residues / aligned columns)
+mmseqs_version=21fbeafa3eaed712b82b5743b78f1a36690e7d51
+mmseqs_search_seconds=5.588
+mmseqs_convert_seconds=0.183
+cross_role_search_seconds=7.258
+search_command=/tmp/ra62ler_pp2/mmseqs/bin/mmseqs search /tmp/ra62ler_pp2/pilot_split/queries_db /tmp/ra62ler_pp2/pilot_split/candidate_db /tmp/ra62ler_pp2/pilot_split/main_result /tmp/ra62ler_pp2/pilot_split/main_tmp --num-iterations 3 -s 7.5 --cov-mode 0 -c 0.8 --alignment-mode 3 -e 10 --max-seqs 20000 --threads 96
+convert_command=/tmp/ra62ler_pp2/mmseqs/bin/mmseqs convertalis /tmp/ra62ler_pp2/pilot_split/queries_db /tmp/ra62ler_pp2/pilot_split/candidate_db /tmp/ra62ler_pp2/pilot_split/main_result /tmp/ra62ler_pp2/pilot_split/main_hits.m8 --format-output query,target,fident,alnlen,qcov,tcov,evalue,bits --threads 96
