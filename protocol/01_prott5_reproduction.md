@@ -19,7 +19,8 @@ As in [`methods.md`](methods.md): Euclidean distance, k = 1. Three runs on the s
 2. EAT with our ProtT5 embeddings (`embed_prott5.py`, fp16, mean pooling).
 3. MMseqs2 best hit (`-s 7.5 -e 10`).
 
-Command: `WORK=/tmp/ra62ler_pp2 bash run.sh` on the H100 server.
+Command: `bash run.sh` on the H100 server, with the scratch directory and
+connection details taken from `SERVER.local.sh` (gitignored).
 
 Run time: our embeddings take 200 s for the 69,605 lookup proteins and 1 s for the 219 queries (plus about 25 s to load the model). The whole script needs about 15 minutes from scratch, most of it to download and unpack the 5.9 GB of authors' embeddings.
 

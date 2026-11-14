@@ -3,7 +3,8 @@
 A dry run of the split recipe proposed in [`protocol/05_data_roadmap.md`](../../protocol/05_data_roadmap.md), to replace guesses with measurements before anything is frozen. **This is not the split.** The seed is provisional and the rules are still open.
 
 ```sh
-WORK=/tmp/ra62ler_pp2/pilot_split bash run_pilot.sh
+# Connection details come from SERVER.local.sh (gitignored).
+bash run_pilot.sh
 ```
 
 MMseqs2 takes about six seconds on 96 cores; the whole pilot runs in under a minute. The three ID manifests are written to the scratch directory on the server, not to the repository.

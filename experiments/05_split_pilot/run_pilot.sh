@@ -7,23 +7,46 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 RESULTS="$HERE/results"
 HVAL="$ROOT/experiments/03_calibration_set/hval.py"
 PILOT="$HERE/pilot_split.py"
-REMOTE_USER=ra62ler
-REMOTE_HOST=aranuka.plai.ifi.lmu.de
-REMOTE_PORT=54321
-REMOTE_SCRATCH=/tmp/ra62ler_pp2/pilot_split
-REMOTE_PYTHON=/tmp/ra62ler_pp2/venv/bin/python
-REMOTE_MMSEQS=/tmp/ra62ler_pp2/mmseqs/bin/mmseqs
-REMOTE_FASTA=/tmp/ra62ler_pp2/v44/cath-domain-seqs-S100-v4_4_0.fa
-REMOTE_CLASSIFICATION=/tmp/ra62ler_pp2/v44/cath-domain-list-S100-v4_4_0.txt
+
+# Server connection details live in SERVER.local.sh, which is gitignored.
+# This repository is public, so no host, user or password belongs in a tracked file.
+# Template:
+#   REMOTE_USER=...
+#   REMOTE_HOST=...
+#   REMOTE_PORT=...
+#   REMOTE_PASSWORD=...
+#   REMOTE_BASE=/tmp/<user>_pp2
+CONFIG="$ROOT/SERVER.local.sh"
+if [[ ! -f "$CONFIG" ]]; then
+  echo "Missing $CONFIG - see the template in the comment above and in SERVER.local.md." >&2
+  exit 1
+fi
+# shellcheck source=/dev/null
+source "$CONFIG"
+: "${REMOTE_USER:?set in SERVER.local.sh}"
+: "${REMOTE_HOST:?set in SERVER.local.sh}"
+: "${REMOTE_PORT:?set in SERVER.local.sh}"
+: "${REMOTE_PASSWORD:?set in SERVER.local.sh}"
+: "${REMOTE_BASE:?set in SERVER.local.sh}"
+
+REMOTE_SCRATCH="$REMOTE_BASE/pilot_split"
+REMOTE_PYTHON="$REMOTE_BASE/venv/bin/python"
+REMOTE_MMSEQS="$REMOTE_BASE/mmseqs/bin/mmseqs"
+REMOTE_FASTA="$REMOTE_BASE/v44/cath-domain-seqs-S100-v4_4_0.fa"
+REMOTE_CLASSIFICATION="$REMOTE_BASE/v44/cath-domain-list-S100-v4_4_0.txt"
 THREADS="${THREADS:-96}"
 
+# sshpass -e reads the password from SSHPASS, so it never appears in the
+# process list the way sshpass -p does.
+export SSHPASS="$REMOTE_PASSWORD"
+
 mkdir -p "$RESULTS"
-sshpass -p 'Mosbyboys123' ssh -p "$REMOTE_PORT" \
+sshpass -e ssh -p "$REMOTE_PORT" \
   "$REMOTE_USER@$REMOTE_HOST" "mkdir -p '$REMOTE_SCRATCH/results'"
-sshpass -p 'Mosbyboys123' scp -P "$REMOTE_PORT" \
+sshpass -e scp -P "$REMOTE_PORT" \
   "$PILOT" "$HVAL" "$REMOTE_USER@$REMOTE_HOST:$REMOTE_SCRATCH/"
 
-sshpass -p 'Mosbyboys123' ssh -p "$REMOTE_PORT" \
+sshpass -e ssh -p "$REMOTE_PORT" \
   "$REMOTE_USER@$REMOTE_HOST" \
   "'$REMOTE_PYTHON' '$REMOTE_SCRATCH/pilot_split.py' \
     --fasta '$REMOTE_FASTA' \
@@ -41,5 +64,5 @@ sshpass -p 'Mosbyboys123' ssh -p "$REMOTE_PORT" \
     --threads '$THREADS' \
     --max-seqs 20000"
 
-sshpass -p 'Mosbyboys123' scp -P "$REMOTE_PORT" \
+sshpass -e scp -P "$REMOTE_PORT" \
   "$REMOTE_USER@$REMOTE_HOST:$REMOTE_SCRATCH/results/*" "$RESULTS/"
